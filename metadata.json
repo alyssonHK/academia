@@ -1,0 +1,5 @@
+{
+  "name": "Gym Workout Planner",
+  "description": "An application to plan and track your weekly gym workout routines. Add exercises for each day of the week, specify reps and time, and mark them as complete as you go.",
+  "requestFramePermissions": []
+}
