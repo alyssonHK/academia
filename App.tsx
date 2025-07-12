@@ -4,7 +4,8 @@ import { db } from './firebase';
 import { Day, Exercise, DayName, DayByDate } from './types';
 import DayCard from './components/DayCard';
 import Calendar from './components/Calendar';
-import { DumbbellIcon, CalendarIcon, ViewColumnsIcon } from './components/Icons';
+import { DumbbellIcon, CalendarIcon, ViewColumnsIcon, CogIcon, ClockIcon as TimerIcon, PlusIcon } from './components/Icons';
+import chickenIcon from './chicken.ico';
 
 const dayNamesInOrder: DayName[] = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
@@ -36,10 +37,89 @@ const initializeDaysInDB = async () => {
     }
 };
 
+// Remover completamente INITIAL_EXERCISE_LIST, getExerciseList, saveExerciseList e qualquer referência a eles.
+
 function App() {
   const [days, setDays] = useState<Day[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'normal' | 'calendar'>('normal');
+
+  // Estado para modal de descanso padrão
+  const [showRestModal, setShowRestModal] = useState(false);
+  const [defaultRest, setDefaultRest] = useState(() => localStorage.getItem('defaultRest') || '60');
+  const [tempRest, setTempRest] = useState(defaultRest);
+
+  // Estado para modal de cronômetro
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+
+  // Estado para lista global de exercícios
+  const [exerciseList, setExerciseList] = useState<string[]>([]);
+
+  // Buscar exercícios do Firestore ao abrir o app
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'exercises'), (snapshot) => {
+      setExerciseList(snapshot.docs.map(doc => doc.data().name));
+    });
+    return () => unsub();
+  }, []);
+
+  // Estado para modal de cadastro de exercício global
+  const [showGlobalAddModal, setShowGlobalAddModal] = useState(false);
+  const [newExerciseName, setNewExerciseName] = useState('');
+
+  // Estado para modal de cadastro global
+  const [globalExercise, setGlobalExercise] = useState('');
+  const [globalSets, setGlobalSets] = useState('');
+  const [globalReps, setGlobalReps] = useState('');
+  const [globalTime, setGlobalTime] = useState('');
+  const [selectedDay, setSelectedDay] = useState<DayName | null>(null);
+
+  useEffect(() => {
+    if (timerActive) {
+      const interval = setInterval(() => setTimer((t) => t + 1), 1000);
+      return () => clearInterval(interval);
+    }
+  }, [timerActive]);
+
+  // Funções para salvar descanso padrão
+  const handleSaveRest = () => {
+    setDefaultRest(tempRest);
+    localStorage.setItem('defaultRest', tempRest);
+    setShowRestModal(false);
+  };
+
+  // Funções do cronômetro
+  const handleStartTimer = () => setTimerActive(true);
+  const handlePauseTimer = () => setTimerActive(false);
+  const handleResetTimer = () => { setTimer(0); setTimerActive(false); };
+
+  // Função para fechar o cronômetro e resetar
+  const handleCloseTimerModal = () => {
+    setTimerActive(false);
+    setTimer(0);
+    setShowTimerModal(false);
+  };
+
+  // Função para adicionar exercício global (agora salva no Firestore)
+  const handleAddGlobalExercise = async () => {
+    const name = newExerciseName.trim();
+    if (!name || exerciseList.includes(name)) return;
+    await setDoc(doc(collection(db, 'exercises'), name), { name });
+    setShowGlobalAddModal(false);
+    setNewExerciseName('');
+  };
+
+  // Função para abrir modal de cadastro global
+  const handleOpenGlobalAdd = (dayName?: DayName) => {
+    setShowGlobalAddModal(true);
+    setSelectedDay(dayName || null);
+    setGlobalExercise('');
+    setGlobalSets('');
+    setGlobalReps('');
+    setGlobalTime('');
+  };
 
   useEffect(() => {
     const setup = async () => {
@@ -87,6 +167,7 @@ function App() {
         const exercisesToSave = updatedExercises.map(ex => ({
             id: ex.id,
             name: ex.name,
+            sets: ex.sets, // garantir que séries sejam salvas
             reps: ex.reps,
             time: ex.time,
             completed: ex.completed,
@@ -152,9 +233,9 @@ function App() {
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans p-4 sm:p-6 lg:p-8">
       <header className="text-center mb-10">
         <div className="flex items-center justify-center gap-4">
-            <img src="/chicken.ico" alt="Chicken" className="w-12 h-12" />
+            <img src={chickenIcon} alt="Chicken" className="w-12 h-12" />
             <h1 className="text-4xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-teal-300 text-transparent bg-clip-text">
-            Projeto Mary monstro
+            Projeto Hello Kitty Bombada
             </h1>
         </div>
         {/* <p className="mt-4 text-lg text-gray-400">DALEEEEEEEEEEEEE</p> */}
@@ -188,6 +269,72 @@ function App() {
         </div>
       </div>
 
+      {/* Barra superior com ícones */}
+      <div className="flex justify-end items-center gap-4 mb-2">
+        <button onClick={() => setShowRestModal(true)} className="p-2 rounded-full hover:bg-gray-700" title="Tempo padrão de descanso">
+          <CogIcon className="w-6 h-6 text-blue-300" />
+        </button>
+        <button onClick={() => setShowTimerModal(true)} className="p-2 rounded-full hover:bg-gray-700" title="Abrir cronômetro manual">
+          <TimerIcon className="w-6 h-6 text-green-300" />
+        </button>
+        <button onClick={() => setShowGlobalAddModal(true)} className="p-2 rounded-full hover:bg-gray-700" title="Cadastrar exercício">
+          <PlusIcon className="w-6 h-6 text-yellow-300" />
+        </button>
+      </div>
+      {/* Modal descanso padrão */}
+      {showRestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col gap-4 min-w-[300px]">
+            <h2 className="text-lg font-bold text-white">Tempo padrão de descanso</h2>
+            <input
+              type="number"
+              value={tempRest}
+              onChange={e => setTempRest(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-900 text-blue-200 border border-gray-600 text-center"
+              min={0}
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowRestModal(false)} className="px-4 py-2 rounded bg-gray-600 text-gray-200">Cancelar</button>
+              <button onClick={handleSaveRest} className="px-4 py-2 rounded bg-blue-600 text-white">Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal cronômetro */}
+      {showTimerModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col gap-4 min-w-[300px] items-center">
+            <h2 className="text-lg font-bold text-white">Cronômetro</h2>
+            <span className="text-4xl font-mono text-green-300">{String(Math.floor(timer/60)).padStart(2,'0')}:{String(timer%60).padStart(2,'0')}</span>
+            <div className="flex gap-2">
+              <button onClick={handleStartTimer} className="px-4 py-2 rounded bg-green-600 text-white">Iniciar</button>
+              <button onClick={handlePauseTimer} className="px-4 py-2 rounded bg-yellow-600 text-white">Pausar</button>
+              <button onClick={handleResetTimer} className="px-4 py-2 rounded bg-gray-600 text-white">Zerar</button>
+            </div>
+            <button onClick={handleCloseTimerModal} className="mt-2 px-4 py-2 rounded bg-gray-700 text-gray-200">Fechar</button>
+          </div>
+        </div>
+      )}
+      {/* Modal de cadastro global de exercício */}
+      {showGlobalAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg flex flex-col gap-4 min-w-[320px]">
+            <h2 className="text-lg font-bold text-white">Cadastrar Exercício</h2>
+            <input
+              type="text"
+              placeholder="Nome do exercício"
+              value={newExerciseName}
+              onChange={e => setNewExerciseName(e.target.value)}
+              className="w-full px-3 py-2 rounded bg-gray-900 text-blue-200 border border-gray-600 text-center mb-2"
+            />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowGlobalAddModal(false)} className="px-4 py-2 rounded bg-gray-600 text-gray-200">Cancelar</button>
+              <button onClick={handleAddGlobalExercise} className="px-4 py-2 rounded bg-green-600 text-white">Cadastrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main>
         {viewMode === 'calendar' ? (
           <Calendar days={days} />
@@ -200,6 +347,7 @@ function App() {
                 onToggleComplete={handleToggleComplete}
                 onAddExercise={handleAddExercise}
                 onDeleteExercise={handleDeleteExercise}
+                exerciseList={exerciseList}
               />
             ))}
           </div>

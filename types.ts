@@ -1,8 +1,11 @@
 export interface Exercise {
   id: string;
   name: string;
-  reps: string;
+  sets: number; // Número de séries
+  reps: number; // Número de repetições por série
   time: string;
+  restTime?: string; // Tempo de descanso após concluir as séries
+  restCompleted?: boolean; // Descanso já foi concluído
   completed: boolean;
 }
 

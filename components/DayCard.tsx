@@ -11,9 +11,10 @@ interface DayCardProps {
   onAddExercise: (dayName: DayName, newExercise: Omit<Exercise, 'id' | 'completed'>) => void;
   onDeleteExercise: (dayName: DayName, exerciseId: string) => void;
   readonly?: boolean;
+  exerciseList: string[];
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, onToggleComplete, onAddExercise, onDeleteExercise, readonly }) => {
+const DayCard: React.FC<DayCardProps> = ({ day, onToggleComplete, onAddExercise, onDeleteExercise, readonly, exerciseList }) => {
   const [isAdding, setIsAdding] = useState(false);
 
   const handleAddSubmit = (exerciseData: Omit<Exercise, 'id' | 'completed'>) => {
@@ -61,6 +62,8 @@ const DayCard: React.FC<DayCardProps> = ({ day, onToggleComplete, onAddExercise,
             <AddExerciseForm
                 onAdd={handleAddSubmit}
                 onCancel={() => setIsAdding(false)}
+                defaultRest={localStorage.getItem('defaultRest') || '60'}
+                exerciseList={exerciseList}
             />
         )}
       </div>
